@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<form method="post">
+    <header>
+        <a href="../">X</a>
+        <p>Ajouter une transaction</p>
+    </header>
+    <div class="form-group">
+        <input type="text" name="title" placeholder="Crypto-Monnaie"
+               class="form-control"
+               id="title_x">
+        </input>
+        <script>
+            $( function() {
+              let availableMoneys = [
+                  {% for money in moneys %}
+                      "{{money}}",
+                  {% endfor %}
+              ];
+              $( "#title_x" ).autocomplete({
+                source: availableMoneys
+              });
+            } );
+        </script>
+        <input type="number" min="0.001" max="100000.0" step="0.001"
+               name="quantity" placeholder="Quantité" class="form-control">
+        </input>
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">AJOUTER</button>
+        </div>
+    </div>
+</form>
+<hr>
+
+
+
+
+{% endblock %}

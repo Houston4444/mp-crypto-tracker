@@ -1,0 +1,18 @@
+DROP TABLE IF EXISTS posts;
+
+CREATE TABLE posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL
+);
+
+CREATE TABLE stock (
+    moneyId INTEGER PRIMARY KEY,
+    quantity DECIMAL
+);
+
+CREATE TABLE gains (
+    day TIMESTAMP,
+    gain DECIMAL
+);
