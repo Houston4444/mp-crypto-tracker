@@ -1,1 +1,3 @@
 /__pycache__/*
+/env/*
+/static/gain_evolution.png
