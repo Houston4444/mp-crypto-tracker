@@ -14,7 +14,7 @@
                 {% if 'icon' in money %}
                 <img src="{{url_for('static', filename=money['icon'])}}"/>
                 {% endif %}
-                {{ money['full_name'] }}</li>
+                <span style="font-weight:bold">{{ money['symbol'] }}</span> ({{ money['name'] }})</li>
             {% endfor %}
         </ul>
     </section>

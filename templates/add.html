@@ -17,8 +17,8 @@
             <script>
                 $(function () {
                     let availableMoneys = [
-                        {% for money in moneys %}
-                    "{{money}}",
+                    {% for money in moneys %}
+                        "{{money}}",
                     {% endfor %}
                 ];
                 $("#title_x").autocomplete({

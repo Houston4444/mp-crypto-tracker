@@ -1,13 +1,13 @@
 import json
 import os
 import sqlite3
-import time
 import datetime
+import logging
 from flask import Flask, render_template, request, url_for, flash, redirect
 from flask_apscheduler import APScheduler
-from werkzeug.exceptions import abort
 
 import coin_api_caller
+import graph_maker
 
 # only because API free key is limited.
 # will be removed.
@@ -20,22 +20,12 @@ def get_db_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
-def get_icon_path_from_symbol(symbol: str) -> str:
-    try:
-        with open('static/crypto_manifest.json', 'r') as file:
-            icon_list = json.load(file)
-    except:
-        return ''
-    
-    for icon_dict in icon_list:
-        if icon_dict['symbol'] == symbol:
-            return f"crypto_icons/{icon_dict['name']}.png"
 
-    return ''
-
- 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your secret key'
+main_config = {'gains_drawn': False}
+_logger = logging.Logger(__name__)
+_logger.setLevel(logging.INFO)
 
 @app.route('/')
 def index():
@@ -46,16 +36,14 @@ def index():
     
     for stock in stocks:
         for mon in moneys_map['data']:
-            # print(mon)
             if mon['id'] == stock['moneyId']:
-                # icon = get_icon_path_from_symbol(mon['symbol'])
-                money = {'full_name': f"({mon['symbol']}) {mon['name']}"}                
+                money = {'full_name': f"({mon['symbol']}) {mon['name']}",
+                         'symbol': mon['symbol'],
+                         'name': mon['name']}                
                 icon = f"{mon['symbol'].lower()}.png"
                 if os.path.exists(os.path.join('static', 'crypto_icons', icon)):
                     money['icon'] = 'crypto_icons/' + icon
-                    
-                # money = {'full_name': f"({mon['symbol']}) {mon['name']}",
-                #          'icon': icon}
+
                 moneys.append(money)
                 print('money:', money['full_name'])
                 break
@@ -73,9 +61,7 @@ def index():
         gain_str = "%.2f" % last_gain['gain']
     conn.close()
     print(moneys)
-    
-        
-    # print('posts::', posts)
+            
     return render_template('index.html', moneys=moneys, gain=gain_str)
 
 
@@ -159,11 +145,10 @@ def route_add():
                 break
         else:
             fields_ok = False
-            flash('Crypto-Monnaie "{money}" inconnue !')
-            
-        conn = get_db_connection()
-        
+            flash('Crypto-Monnaie "{money}" inexistante ou non référencée !')
+
         if fields_ok:
+            conn = get_db_connection()
             money_stock = conn.execute(
                 f'SELECT * FROM stock WHERE moneyID = {money_id}').fetchone()
 
@@ -195,6 +180,22 @@ def route_add():
 
 @app.route('/gains')
 def route_gains():
+    if not main_config['gains_drawn']:
+        conn = get_db_connection()
+        
+        gains = conn.execute('SELECT gain FROM gains').fetchall()
+        gain_list = [g['gain'] for g in gains]
+        if len(gain_list) == 1:
+            # make it draw a straight line
+            # if we've got only one value.
+            gain_list.append(gain_list[0])
+        
+        conn.close()
+        
+        _logger.info('making the gain curve')
+        graph_maker.make_graph(gain_list)
+        main_config['gains_drawn'] = True
+    
     return render_template('gains.html')
 
 def check_crypto_values():
@@ -204,7 +205,11 @@ def check_crypto_values():
         print('on check pas CALL_API')
         return
     
-    print('on ask les valeurs API coin !!!')
+    _logger.info('Check cryptocurrencies values now.')
+    
+    # we will now calculate the new gain,
+    # so if user calls gains graph, it has to be redrawn.
+    main_config['gains_drawn'] = False
     
     conn = get_db_connection()
     stocks = conn.execute('SELECT * FROM STOCK').fetchall()
@@ -214,10 +219,28 @@ def check_crypto_values():
         q = stock['quantity']
         if q == 0.0:
             continue
-        
+
         new_price = coin_api_caller.get_coin_api_value(stock['moneyId'])
+        
+        # TODO try it !!!
+        
+        evolution = 0
+        if new_price > stocks['lastPrice']:
+            if stock['moneyEvolution'] >= 1:
+                evolution = 2
+            else:
+                evolution = 1
+            evolution = 2 if stock['moneyEvolution'] >= 1 else 1
+            
+        else:
+            evolution = -1
+        
+        conn.execute(f'UPDATE stock SET moneyEvolution={evolution} '
+                     f'lastPrice={new_price} '
+                     'WHERE moneyId = %i' % stock['moneyId'])   
+
         today_gain += (new_price - (stock['totalExpense'] / q)) * q
-    
+
     conn.execute('INSERT INTO gains (day, gain) VALUES (?, ?)',
                  (datetime.datetime.now(), today_gain))
     conn.commit()
