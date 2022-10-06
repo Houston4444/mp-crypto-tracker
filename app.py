@@ -9,9 +9,9 @@ from werkzeug.exceptions import abort
 
 import coin_api_caller
 
-# only because API is limited
+# only because API free key is limited.
 # will be removed.
-CALL_API = True
+CALL_API = False
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(
@@ -20,6 +20,20 @@ def get_db_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_icon_path_from_symbol(symbol: str) -> str:
+    try:
+        with open('static/crypto_manifest.json', 'r') as file:
+            icon_list = json.load(file)
+    except:
+        return ''
+    
+    for icon_dict in icon_list:
+        if icon_dict['symbol'] == symbol:
+            return f"crypto_icons/{icon_dict['name']}.png"
+
+    return ''
+
+ 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your secret key'
 
@@ -34,24 +48,35 @@ def index():
         for mon in moneys_map['data']:
             # print(mon)
             if mon['id'] == stock['moneyId']:
-                money = {'full_name': f"({mon['symbol']}) {mon['name']}"}
+                # icon = get_icon_path_from_symbol(mon['symbol'])
+                money = {'full_name': f"({mon['symbol']}) {mon['name']}"}                
+                icon = f"{mon['symbol'].lower()}.png"
+                if os.path.exists(os.path.join('static', 'crypto_icons', icon)):
+                    money['icon'] = 'crypto_icons/' + icon
+                    
+                # money = {'full_name': f"({mon['symbol']}) {mon['name']}",
+                #          'icon': icon}
                 moneys.append(money)
                 print('money:', money['full_name'])
                 break
+
         print('money_id:', stock['moneyId'])
         print('quantity:', stock['quantity'])
         print('total expense:', stock['totalExpense'])
 
-    last_gain = conn.execute('SELECT gain FROM gains ORDER BY day DESC LIMIT 1')
-    print('last_gain:', last_gain)
+    last_gain = conn.execute(
+        'SELECT gain FROM gains ORDER BY day DESC LIMIT 1').fetchone()
     
-    # conn.commit()
+    if last_gain is None:
+        gain_str = '0.00'
+    else:
+        gain_str = "%.2f" % last_gain['gain']
     conn.close()
     print(moneys)
     
         
     # print('posts::', posts)
-    return render_template('index.html', moneys=moneys)
+    return render_template('index.html', moneys=moneys, gain=gain_str)
 
 
 @app.route('/edit', methods=('GET', 'POST'))
@@ -167,6 +192,10 @@ def route_add():
         'add.html',
         moneys=[m['name'] for m in moneys_map['data']])
 
+
+@app.route('/gains')
+def route_gains():
+    return render_template('gains.html')
 
 def check_crypto_values():
     ''' this function is called every day,

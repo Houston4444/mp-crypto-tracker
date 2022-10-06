@@ -3,17 +3,18 @@
 {% block content %}
     <header>
         <p>Crypto Tracker</p>
-        <!-- <button value="edit">edit</button>
-         -->
-        <!-- <button value="+">+</button> -->
         <a href="edit">🖉</a>
         <a href="add">+</a>
     </header>
     <section>
-        <p>Gain: 2250 €</p>
+        <a href="gains">Gain: {{gain}} €</a>
         <ul>
             {% for money in moneys %}
-            <li>{{ money['full_name'] }}</li>
+            <li>
+                {% if 'icon' in money %}
+                <img src="{{url_for('static', filename=money['icon'])}}"/>
+                {% endif %}
+                {{ money['full_name'] }}</li>
             {% endfor %}
         </ul>
     </section>

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import make_interp_spline
 
-IMAGE_FILE_NAME = 'gain_evolution.png'
+IMAGE_FILE_NAME = 'static/gain_evolution.png'
 
 def make_graph(summed_gains: list[float]):
     ''' Writes the evolution graph with matplotlib.
@@ -27,10 +27,9 @@ def make_graph(summed_gains: list[float]):
     ax = plt.gca()
 
     ax.axes.xaxis.set_ticks([])
-    # ax.axes.xaxis.set_visible(False)
     ax.spines['bottom'].set_position('center')
     ax.spines['top'].set_color('none')
     ax.spines['right'].set_color('none')
-    # ax.plot(1, 0, '>k', transform=ax.get_yaxis_transform(), clip_on=False)
+
     plt.savefig(IMAGE_FILE_NAME)
     plt.close()

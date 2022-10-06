@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<header>
+    <a href="../">✖</a>
+    <p>Vos gains</p>
+</header>
+<div class="container">
+    <img class="img-fluid" src="{{url_for('static', filename='my_plot.png')}}" alt="courbe des gains">
+</div>
+{% endblock %}
