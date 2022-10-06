@@ -1,6 +1,5 @@
 
 from operator import sub
-from mpl_toolkits.axisartist.axislines import SubplotZero
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np

@@ -2,23 +2,23 @@ import json
 import os
 import sqlite3
 import time
+import datetime
 from flask import Flask, render_template, request, url_for, flash, redirect
+from flask_apscheduler import APScheduler
 from werkzeug.exceptions import abort
 
+import coin_api_caller
+
+# only because API is limited
+# will be removed.
+CALL_API = True
 
 def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect('database.db')
+    conn = sqlite3.connect(
+        'database.db',
+        detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
     conn.row_factory = sqlite3.Row
     return conn
-
-def get_post(post_id: int):
-    conn = get_db_connection()
-    post = conn.execute('SELECT * FROM posts WHERE id = ?',
-                        (post_id,)).fetchone()
-    conn.close()
-    if post is None:
-        abort(404)
-    return post
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your secret key'
@@ -26,23 +26,26 @@ app.config['SECRET_KEY'] = 'your secret key'
 @app.route('/')
 def index():
     conn = get_db_connection()
-    # posts = conn.execute('SELECT * FROM posts').fetchall()
     
-    gain = 0.0
-    print('stock')
     stocks = conn.execute('SELECT * FROM stock').fetchall()
     moneys = list[dict]()
-    now = time.time()
     
     for stock in stocks:
-        print(stock['moneyId'], stock['quantity'])
         for mon in moneys_map['data']:
             # print(mon)
             if mon['id'] == stock['moneyId']:
                 money = {'full_name': f"({mon['symbol']}) {mon['name']}"}
                 moneys.append(money)
-    finito = time.time()
-    print('temps lle', finito - now)
+                print('money:', money['full_name'])
+                break
+        print('money_id:', stock['moneyId'])
+        print('quantity:', stock['quantity'])
+        print('total expense:', stock['totalExpense'])
+
+    last_gain = conn.execute('SELECT gain FROM gains ORDER BY day DESC LIMIT 1')
+    print('last_gain:', last_gain)
+    
+    # conn.commit()
     conn.close()
     print(moneys)
     
@@ -50,21 +53,13 @@ def index():
     # print('posts::', posts)
     return render_template('index.html', moneys=moneys)
 
-@app.route('/about')
-def about():
-    print('chien mechant')
-
-@app.route('/<int:post_id>')
-def post(post_id: int):
-    post = get_post(post_id)
-    return render_template('post.html', post=post)
 
 @app.route('/edit', methods=('GET', 'POST'))
-def create():
+def route_edit():
     if request.method == 'POST':
         quantity = request.form['quantity']
         money_id = request.form['money']
-        print('zlekf', money_id, quantity)
+
         fields_ok = True
         
         try:
@@ -81,12 +76,22 @@ def create():
             conn = get_db_connection()
             
             money_stock = conn.execute(
-                f'SELECT quantity FROM stock WHERE moneyID = {money_id}').fetchone()
+                f'SELECT * FROM stock WHERE moneyID = {money_id}').fetchone()
 
-            quantity = max(money_stock['quantity'] - quantity, 0.0)
-            print('stocking quantity', quantity, money_id)
-            conn.execute('UPDATE stock SET quantity = ? WHERE moneyId = ?',
-                         (quantity, money_id))
+            if money_stock is None:
+                print('attempting to remove some stock user has not'
+                      ', that should not happens !!!')
+
+            if not money_stock['quantity'] == 0.0:
+                # prevented Zero Division
+                # update quantity and total expense for this crypo.
+                new_quantity = max(money_stock['quantity'] - quantity, 0.0)
+                new_total_expense = (money_stock['totalExpense']
+                                     * (quantity / money_stock['quantity']))
+                conn.execute(
+                    f'UPDATE stock SET quantity={new_quantity}, '
+                    f'totalExpense={new_total_expense} WHERE moneyId = {money_id}')
+
             conn.commit()
             conn.close()
             return redirect(url_for('index'))
@@ -102,27 +107,27 @@ def create():
                      'id': mon['id']})
                 break
 
-    return render_template('create.html', moneys=moneys)
+    return render_template('edit.html', moneys=moneys)
 
 @app.route('/add', methods=('GET', 'POST'))
-def edit():
+def route_add():
     if request.method == 'POST':
         money = request.form['title']
         quantity = request.form['quantity']
+        buy_price = request.form['buy_price']
         
         fields_ok = True
         try:
             quantity = float(quantity)
-        except:
-            flash('Quantité invalide !')
+            buy_price = float(buy_price)
+        except ValueError:
+            flash("Quantité ou prix d'achat invalide !")
             fields_ok = False
 
         if not money:
             fields_ok = False
             flash('Une Crypto-Monnaie est requise !')
 
-        conn = get_db_connection()
-        
         for mon in moneys_map['data']:
             if mon['name'] == money:
                 money_id = mon['id']
@@ -131,38 +136,80 @@ def edit():
             fields_ok = False
             flash('Crypto-Monnaie "{money}" inconnue !')
             
+        conn = get_db_connection()
+        
         if fields_ok:
             money_stock = conn.execute(
-                f'SELECT quantity FROM stock WHERE moneyID = {money_id}').fetchone()
+                f'SELECT * FROM stock WHERE moneyID = {money_id}').fetchone()
 
             if money_stock is None:
-                conn.execute('INSERT INTO stock (moneyId, quantity) VALUES (?, ?)',
-                                (money_id, quantity))
+                # user never bought this crypto before
+                # we add a new row to the table 
+                conn.execute(
+                    'INSERT INTO stock (moneyId, quantity, totalExpense) '
+                    'VALUES (?, ?, ?)',
+                    (money_id, quantity, buy_price * quantity))
             else:
+                # user already bought this crypto before
+                # we update quantity and total cost for this crypto
+                total_expense = money_stock['totalExpense'] + quantity * buy_price
                 quantity += money_stock['quantity']
-                print('stocking quantity', quantity, money_id)
-                conn.execute('UPDATE stock SET quantity = ? WHERE moneyId = ?',
-                                (quantity, money_id))
+                conn.execute(
+                    f'UPDATE stock SET quantity={quantity}, '
+                    f'totalExpense={total_expense} '
+                    f'WHERE moneyId = {money_id}')
 
             conn.commit()
             conn.close()
             return redirect(url_for('index'))
 
     return render_template(
-        'edit.html',
+        'add.html',
         moneys=[m['name'] for m in moneys_map['data']])
 
-# @app.route('/edit', methods=('POST',))
-# def delete():
-#     # post = get_post(id)
-#     # conn = get_db_connection()
-#     # conn.execute('DELETE FROM posts WHERE id = ?', (id,))
-#     # conn.commit()
-#     # conn.close()
-#     # flash('"{}" was successfully deleted!'.format(post['title']))
-#     return redirect(url_for('index'))
 
+def check_crypto_values():
+    ''' this function is called every day,
+        it checks crypto-currencies values. '''
+    if not CALL_API:
+        print('on check pas CALL_API')
+        return
+    
+    print('on ask les valeurs API coin !!!')
+    
+    conn = get_db_connection()
+    stocks = conn.execute('SELECT * FROM STOCK').fetchall()
+    today_gain = 0.0
+
+    for stock in stocks:
+        q = stock['quantity']
+        if q == 0.0:
+            continue
+        
+        new_price = coin_api_caller.get_coin_api_value(stock['moneyId'])
+        today_gain += (new_price - (stock['totalExpense'] / q)) * q
+    
+    conn.execute('INSERT INTO gains (day, gain) VALUES (?, ?)',
+                 (datetime.datetime.now(), today_gain))
+    conn.commit()
+    conn.close()
+    print('today_gain: ', today_gain)   
+
+scheduler = APScheduler()
+scheduler.add_job('check_crypto_values',
+                  check_crypto_values,
+                  trigger='interval',
+                  minutes=1)
+scheduler.init_app(app)
+scheduler.start()
+# check_crypto_values()
+
+# @scheduler.task('interval', id="do_job_1", seconds=3)
+    
 this_dir = os.path.dirname(__file__)
 with open(os.path.join(this_dir, 'crypto_cur_map.json')) as file:
     moneys_map = json.load(file)
     
+
+if __name__ == '__main__':
+    app.run()
