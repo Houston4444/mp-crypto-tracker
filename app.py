@@ -11,7 +11,7 @@ import graph_maker
 
 # only because API free key is limited.
 # will be removed.
-CALL_API = False
+# CALL_API = True
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(
@@ -51,14 +51,19 @@ def index():
         print('money_id:', stock['moneyId'])
         print('quantity:', stock['quantity'])
         print('total expense:', stock['totalExpense'])
+        print('last_price:', stock['lastPrice'])
+        print('moneyEvolution:', stock['moneyEvolution'])
 
     last_gain = conn.execute(
         'SELECT gain FROM gains ORDER BY day DESC LIMIT 1').fetchone()
     
-    if last_gain is None:
-        gain_str = '0.00'
+    if last_gain is None or last_gain['gain'] == 0.0:
+        gain_str = '0.00 €'
+    elif last_gain['gain'] > 0.0:
+        gain_str = "+ %.2f €" % last_gain['gain']
     else:
-        gain_str = "%.2f" % last_gain['gain']
+        gain_str = "- %.2f €" % abs(last_gain['gain'])
+    
     conn.close()
     print(moneys)
             
@@ -221,21 +226,21 @@ def check_crypto_values():
             continue
 
         new_price = coin_api_caller.get_coin_api_value(stock['moneyId'])
+        evolution = 0
         
         # TODO try it !!!
-        
-        evolution = 0
-        if new_price > stocks['lastPrice']:
-            if stock['moneyEvolution'] >= 1:
-                evolution = 2
+        if not (stock['lastPrice'] is None or stock['moneyEvolution'] is None):
+            if new_price > stock['lastPrice']:
+                if stock['moneyEvolution'] >= 1:
+                    evolution = 2
+                else:
+                    evolution = 1
+                evolution = 2 if stock['moneyEvolution'] >= 1 else 1
+                
             else:
-                evolution = 1
-            evolution = 2 if stock['moneyEvolution'] >= 1 else 1
-            
-        else:
-            evolution = -1
+                evolution = -1
         
-        conn.execute(f'UPDATE stock SET moneyEvolution={evolution} '
+        conn.execute(f'UPDATE stock SET moneyEvolution={evolution}, '
                      f'lastPrice={new_price} '
                      'WHERE moneyId = %i' % stock['moneyId'])   
 

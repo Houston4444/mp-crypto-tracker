@@ -1,0 +1,64 @@
+body {
+    background-color: #100f0f;
+    color: white;
+    font-family: 'Roboto', 'sans';
+}
+
+header {
+    border-bottom: 1px solid rgba(239, 239, 239, 0.2);
+    margin-bottom: 20px;
+    padding: 0px;
+    min-height: 40px;
+}
+
+a {
+    color: white;
+    text-decoration: none;
+}
+
+p {
+    margin: 0px;
+}
+
+a:hover {
+    font-weight: bold;
+    color: white;
+    text-decoration: none;
+}
+
+ul {
+    list-style: none;
+    padding: 0px;
+}
+
+li {
+    border-bottom: 1px solid rgba(239, 239, 239, 0.2);
+    min-height: 40px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.row_gain {
+    text-align: center;
+    min-height: 70px;
+    font-size: 1.5em;
+    background-color: #1e1900;
+    margin-bottom: 10px;
+}
+
+.main_gain {
+    vertical-align: middle;
+}
+
+.main_logo {
+    font-family: 'Fredoka One', cursive;
+}
+
+.input-group-text {
+    min-width: 40px;
+}
+
+.gains {
+    padding: 0px;
+    margin: 0px;
+}
