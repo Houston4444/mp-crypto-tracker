@@ -11,7 +11,7 @@ import graph_maker
 
 # only because API free key is limited.
 # will be removed.
-# CALL_API = True
+CALL_API = False
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(
@@ -68,7 +68,6 @@ def index():
     print(moneys)
             
     return render_template('index.html', moneys=moneys, gain=gain_str)
-
 
 @app.route('/edit', methods=('GET', 'POST'))
 def route_edit():
@@ -180,7 +179,8 @@ def route_add():
 
     return render_template(
         'add.html',
-        moneys=[m['name'] for m in moneys_map['data']])
+        moneys=[m['name'] for m in moneys_map['data']],
+        autocomplete=True)
 
 
 @app.route('/gains')

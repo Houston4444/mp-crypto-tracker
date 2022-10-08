@@ -19,18 +19,7 @@
             </div>
             <input type="text" name="title" placeholder="Crypto-Monnaie" class="form-control" id="title_x">
             </input>
-            <script>
-                $(function () {
-                    let availableMoneys = [
-                    {% for money in moneys %}
-                        "{{money}}",
-                    {% endfor %}
-                ];
-                $("#title_x").autocomplete({
-                    source: availableMoneys
-                });
-            } );
-            </script>
+            
         </div>
     </div>
     <div class="form-group">
@@ -53,7 +42,7 @@
             </input>
         </div>
     </div>
-    <div class="form-group">
+    <div class="form-group text-center my-5">
         <button type="submit" class="btn btn-primary">AJOUTER</button>
     </div>
 </form>
