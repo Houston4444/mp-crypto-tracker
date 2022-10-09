@@ -17,7 +17,7 @@ CALL_API = True
 
 # for testing, it's easier to check cryto quotes each minute
 # than each day.
-EACH_MINUTE = True
+EACH_MINUTE = False
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(
