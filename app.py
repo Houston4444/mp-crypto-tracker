@@ -64,14 +64,7 @@ def index():
                     money['icon'] = 'crypto_icons/' + icon
 
                 moneys.append(money)
-                print('money:', money['full_name'])
                 break
-
-        print('money_id:', stock['moneyId'])
-        print('quantity:', stock['quantity'])
-        print('total expense:', stock['totalExpense'])
-        print('last_price:', stock['lastPrice'])
-        print('moneyEvolution:', stock['moneyEvolution'])
 
     last_gain = conn.execute(
         'SELECT gain FROM gains ORDER BY day DESC LIMIT 1').fetchone()
@@ -83,9 +76,7 @@ def index():
     else:
         gain_str = "- %.2f €" % abs(last_gain['gain'])
     
-    conn.close()
-    print(moneys)
-            
+    conn.close()            
     return render_template('index.html', moneys=moneys, gain=gain_str)
 
 @app.route('/edit', methods=('GET', 'POST'))
@@ -113,8 +104,9 @@ def route_edit():
                 f'SELECT * FROM stock WHERE moneyID = {money_id}').fetchone()
 
             if money_stock is None:
-                print('attempting to remove some stock user has not'
-                      ', that should not happens !!!')
+                _logger.warning(
+                    'attempting to remove some stock user has not'
+                    ', that should not happens !!!')
 
             if not money_stock['quantity'] == 0.0:
                 # prevented Zero Division
@@ -232,7 +224,6 @@ def check_crypto_values():
     ''' this function is called every day,
         it checks crypto-currencies values. '''
     if not CALL_API:
-        print('on check pas CALL_API')
         return
     
     _logger.info('Check cryptocurrencies values now.')
@@ -275,8 +266,6 @@ def check_crypto_values():
                  (datetime.datetime.now(), today_gain))
     conn.commit()
     conn.close()
-    print('today_gain: ', today_gain)   
-
 
 scheduler = APScheduler()
 

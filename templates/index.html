@@ -21,31 +21,23 @@
     </div> -->
 </div>
 <div class="row justify-content-center">
-    <div class="col-10 pr-4">
-        <ul class="list-group">
+    <div class="col-10 table-container">
+        <table class="crypto-index-table">
             {% for money in moneys %}
-            <li>
-                <div class="row">
-                    <div class="col-2 my-auto">
-                        {% if 'icon' in money %}
-                        <img src="{{url_for('static', filename=money['icon'])}}" />
-                        {% else %}
-                        <p style="min-width: 32px;"></p>
-                        {% endif %}
-                    </div>
-                    <div class="col-2 my-auto money_symbol">
-                        <span style="font-weight:bold">{{ money['symbol'] }}</span>
-                    </div>
-                    <div class="col-6 my-auto">
-                        <span style="text-align: left;"> ({{ money['name'] }})</p>
-                    </div>
-                    <div class="col-2 my-auto">
-                        <span>{{ money['evol_sym'] }}</span>
-                    </div>
-                </div>
-            </li>
+            <tr>
+                <td>
+                    {% if 'icon' in money %}
+                    <img src="{{url_for('static', filename=money['icon'])}}" />
+                    {% endif %}
+                </td>
+                <td>
+                    <span style="font-weight:bold">{{ money['symbol'] }}</span>
+                </td>
+                <td>({{ money['name'] }})</td>
+                <td>{{ money['evol_sym'] }}</td>
+            </tr>
             {% endfor %}
-        </ul>
+        </table>
     </div>
 </div>
 {% endblock %}

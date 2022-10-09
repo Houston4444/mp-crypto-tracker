@@ -40,8 +40,22 @@ li {
     text-align: center;
 }
 
-header, li {
+header, li, tr {
     border-bottom: 1px solid rgba(239, 239, 239, 0.2);
+}
+
+tr, td{
+    padding: 4px;
+}
+
+form {
+    height: 80vh;
+}
+
+.crypto-index-table {
+    width: 100%;
+    margin-left: 0%;
+    margin-right: 0%;
 }
 
 .row_gain {
