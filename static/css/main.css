@@ -1,7 +1,7 @@
 body {
     background-color: #100f0f;
     color: white;
-    font-family: 'Roboto', 'sans';
+    font-family: 'Roboto', 'sans-serif';
 }
 
 header {
@@ -83,3 +83,6 @@ header, li {
     color: black;
 }
 
+.money_symbol {
+    font-weight: bold;
+}

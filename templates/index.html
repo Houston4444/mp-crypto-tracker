@@ -21,7 +21,7 @@
     </div> -->
 </div>
 <div class="row justify-content-center">
-    <div class="col-10">
+    <div class="col-10 pr-4">
         <ul class="list-group">
             {% for money in moneys %}
             <li>
@@ -29,14 +29,18 @@
                     <div class="col-2 my-auto">
                         {% if 'icon' in money %}
                         <img src="{{url_for('static', filename=money['icon'])}}" />
+                        {% else %}
+                        <p style="min-width: 32px;"></p>
                         {% endif %}
                     </div>
-                    <div class="col-2 my-auto">
+                    <div class="col-2 my-auto money_symbol">
                         <span style="font-weight:bold">{{ money['symbol'] }}</span>
                     </div>
-                    <div class="col-8 my-auto">
-                        
-                        <p style="text-align: 'left';">({{ money['name'] }})</p>
+                    <div class="col-6 my-auto">
+                        <span style="text-align: left;"> ({{ money['name'] }})</p>
+                    </div>
+                    <div class="col-2 my-auto">
+                        <span>{{ money['evol_sym'] }}</span>
                     </div>
                 </div>
             </li>

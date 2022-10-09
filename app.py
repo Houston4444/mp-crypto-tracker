@@ -3,6 +3,8 @@ import os
 import sqlite3
 import datetime
 import logging
+import threading
+from typing import Optional
 from flask import Flask, render_template, request, url_for, flash, redirect
 from flask_apscheduler import APScheduler
 
@@ -11,7 +13,11 @@ import graph_maker
 
 # only because API free key is limited.
 # will be removed.
-CALL_API = False
+CALL_API = True
+
+# for testing, it's easier to check cryto quotes each minute
+# than each day.
+EACH_MINUTE = True
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(
@@ -20,6 +26,16 @@ def get_db_connection() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_evolution_sym_from_int(evolution: Optional[int]) -> str:
+    if evolution is None:
+        return ''
+    if evolution <= -1:
+        return "↘"
+    if evolution <= 0:
+        return "→"
+    if evolution <= 1:
+        return "↗"
+    return "⇗"
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your secret key'
@@ -37,9 +53,12 @@ def index():
     for stock in stocks:
         for mon in moneys_map['data']:
             if mon['id'] == stock['moneyId']:
-                money = {'full_name': f"({mon['symbol']}) {mon['name']}",
-                         'symbol': mon['symbol'],
-                         'name': mon['name']}                
+                money = {
+                    'full_name': f"({mon['symbol']}) {mon['name']}",
+                    'symbol': mon['symbol'],
+                    'name': mon['name'],
+                    'evol_sym': get_evolution_sym_from_int(stock['moneyEvolution'])}
+                             
                 icon = f"{mon['symbol'].lower()}.png"
                 if os.path.exists(os.path.join('static', 'crypto_icons', icon)):
                     money['icon'] = 'crypto_icons/' + icon
@@ -127,29 +146,35 @@ def route_edit():
 @app.route('/add', methods=('GET', 'POST'))
 def route_add():
     if request.method == 'POST':
-        money = request.form['title']
-        quantity = request.form['quantity']
-        buy_price = request.form['buy_price']
-        
         fields_ok = True
+
         try:
-            quantity = float(quantity)
-            buy_price = float(buy_price)
-        except ValueError:
-            flash("Quantité ou prix d'achat invalide !")
+            money = request.form['crypto_name']
+            quantity = request.form['quantity']
+            buy_price = request.form['buy_price']
+        except:
+            _logger.warning("requête POST sur /add non valide")
             fields_ok = False
+        
+        if fields_ok:        
+            try:
+                quantity = float(quantity)
+                buy_price = float(buy_price)
+            except ValueError:
+                flash("Quantité ou prix d'achat invalide !")
+                fields_ok = False
 
-        if not money:
-            fields_ok = False
-            flash('Une Crypto-Monnaie est requise !')
+            if not money:
+                fields_ok = False
+                flash('Une Crypto-Monnaie est requise !')
 
-        for mon in moneys_map['data']:
-            if mon['name'] == money:
-                money_id = mon['id']
-                break
-        else:
-            fields_ok = False
-            flash('Crypto-Monnaie "{money}" inexistante ou non référencée !')
+            for mon in moneys_map['data']:
+                if mon['name'] == money:
+                    money_id = mon['id']
+                    break
+            else:
+                fields_ok = False
+                flash('Crypto-Monnaie "{money}" inexistante ou non référencée !')
 
         if fields_ok:
             conn = get_db_connection()
@@ -252,21 +277,26 @@ def check_crypto_values():
     conn.close()
     print('today_gain: ', today_gain)   
 
+
 scheduler = APScheduler()
-scheduler.add_job('check_crypto_values',
-                  check_crypto_values,
-                  trigger='interval',
-                  minutes=1)
+
+if EACH_MINUTE:
+    scheduler.add_job('check_crypto_values',
+                      check_crypto_values,
+                      trigger='interval',
+                      minutes=1)
+else:
+    scheduler.add_job('check_crypto_values',
+                      check_crypto_values,
+                      trigger='interval',
+                      days=1)
 scheduler.init_app(app)
 scheduler.start()
-# check_crypto_values()
-
-# @scheduler.task('interval', id="do_job_1", seconds=3)
     
 this_dir = os.path.dirname(__file__)
 with open(os.path.join(this_dir, 'crypto_cur_map.json')) as file:
     moneys_map = json.load(file)
-    
+
 
 if __name__ == '__main__':
     app.run()

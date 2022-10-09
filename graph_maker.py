@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.interpolate import make_interp_spline
+import threading
 
 IMAGE_FILE_NAME = 'static/gain_evolution.png'
 
@@ -32,7 +33,7 @@ def make_graph(summed_gains: list[float]):
 
     for key, value in PLOT_STYLE.items():
         mpl.rcParams[key] = value
-
+    
     plt.plot(x_, y_, color="#1fc36c")
     plt.xlabel('date')
     ax = plt.gca()
