@@ -48,6 +48,23 @@ tr, td{
     padding: 4px;
 }
 
+td:nth-child(3) {
+    font-size: 0.6em;
+}
+
+td:nth-child(4) {
+    font-size: 0.6em;
+}
+
+td:nth-child(5) {
+    font-size: 0.50em;
+    text-align: right;
+}
+
+td:nth-child(6) {
+    font-size: 1.25em;
+}
+
 form {
     height: 80vh;
 }

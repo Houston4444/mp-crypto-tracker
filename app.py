@@ -3,7 +3,6 @@ import os
 import sqlite3
 import datetime
 import logging
-import threading
 from typing import Optional
 from flask import Flask, render_template, request, url_for, flash, redirect
 from flask_apscheduler import APScheduler
@@ -18,6 +17,9 @@ CALL_API = True
 # for testing, it's easier to check cryto quotes each minute
 # than each day.
 EACH_MINUTE = False
+if os.getenv('EACH_MINUTE') == 'true':
+    EACH_MINUTE = True
+
 
 def get_db_connection() -> sqlite3.Connection:
     conn = sqlite3.connect(
@@ -27,6 +29,7 @@ def get_db_connection() -> sqlite3.Connection:
     return conn
 
 def get_evolution_sym_from_int(evolution: Optional[int]) -> str:
+    ''' returns a symbol for display '''
     if evolution is None:
         return ''
     if evolution <= -1:
@@ -36,6 +39,25 @@ def get_evolution_sym_from_int(evolution: Optional[int]) -> str:
     if evolution <= 1:
         return "↗"
     return "⇗"
+
+def calculate_and_store_gain(conn: sqlite3.Connection):
+    moneys = conn.execute('SELECT * FROM stock').fetchall()
+    gain = 0.0
+    for money in moneys:
+        if money['lastPrice'] > 0.0:
+            gain += money['quantity'] * money['lastPrice'] - money['totalExpense']
+    
+    conn.execute('INSERT INTO gains (day, gain) VALUES (?, ?)',
+                 (datetime.datetime.now(), gain))
+
+
+def debug_table():
+    conn = get_db_connection()
+    stocks = conn.execute('SELECT * FROM stock')
+    for s in stocks:
+        print('id:', s['moneyId'], s['quantity'], s['lastPrice'], s['moneyEvolution'])
+    conn.close()
+        
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your secret key'
@@ -50,13 +72,25 @@ def index():
     stocks = conn.execute('SELECT * FROM stock').fetchall()
     moneys = list[dict]()
     
+    # for each crypto-currency in database
+    # fill the list[dict] moneys that will give substition values
+    # for the list of cryptos of the main page.
     for stock in stocks:
         for mon in moneys_map['data']:
             if mon['id'] == stock['moneyId']:
+                if stock['lastPrice'] == 0.0:
+                    euro_value_str = "??"
+                elif stock['lastPrice'] >= 0.100:
+                    euro_value_str = "%.3f €" % stock['lastPrice']
+                else:
+                    euro_value_str = "%.2f c€" % (stock['lastPrice'] * 100) 
+                print(stock['lastPrice'])
+                print(euro_value_str)
                 money = {
-                    'full_name': f"({mon['symbol']}) {mon['name']}",
                     'symbol': mon['symbol'],
                     'name': mon['name'],
+                    'quantity': "%.3f" % stock['quantity'],
+                    'euro_value': euro_value_str,
                     'evol_sym': get_evolution_sym_from_int(stock['moneyEvolution'])}
                              
                 icon = f"{mon['symbol'].lower()}.png"
@@ -76,7 +110,8 @@ def index():
     else:
         gain_str = "- %.2f €" % abs(last_gain['gain'])
     
-    conn.close()            
+    conn.close()
+    debug_table()
     return render_template('index.html', moneys=moneys, gain=gain_str)
 
 @app.route('/edit', methods=('GET', 'POST'))
@@ -118,10 +153,20 @@ def route_edit():
                     f'UPDATE stock SET quantity={new_quantity}, '
                     f'totalExpense={new_total_expense} WHERE moneyId = {money_id}')
 
+            new_price = coin_api_caller.get_coin_api_value(money_id)
+            print('zfefpofe', money_id, new_price)
+            if new_price:
+                conn.execute(f'UPDATE stock SET lastPrice={new_price} '
+                             f'WHERE moneyId = {money_id}')
+
+            calculate_and_store_gain(conn)
+            main_config['gains_drawn'] = False
             conn.commit()
             conn.close()
             return redirect(url_for('index'))
 
+    # create moneys dict for jinja substitution
+    # used for values of the combobox
     moneys = list[dict[str, str]]()
     conn = get_db_connection()
     money_ids = conn.execute('SELECT moneyId FROM stock').fetchall()
@@ -148,6 +193,19 @@ def route_add():
             _logger.warning("requête POST sur /add non valide")
             fields_ok = False
         
+        if fields_ok and not money:
+            fields_ok = False
+            flash('Une Crypto-Monnaie est requise !')
+        
+        if fields_ok:
+            for mon in moneys_map['data']:
+                if mon['name'] == money:
+                    money_id = mon['id']
+                    break
+            else:
+                fields_ok = False
+                flash(f'Crypto-Monnaie {money} inexistante ou non référencée !')
+        
         if fields_ok:        
             try:
                 quantity = float(quantity)
@@ -156,30 +214,21 @@ def route_add():
                 flash("Quantité ou prix d'achat invalide !")
                 fields_ok = False
 
-            if not money:
-                fields_ok = False
-                flash('Une Crypto-Monnaie est requise !')
-
-            for mon in moneys_map['data']:
-                if mon['name'] == money:
-                    money_id = mon['id']
-                    break
-            else:
-                fields_ok = False
-                flash('Crypto-Monnaie "{money}" inexistante ou non référencée !')
-
         if fields_ok:
             conn = get_db_connection()
+            
             money_stock = conn.execute(
                 f'SELECT * FROM stock WHERE moneyID = {money_id}').fetchone()
 
             if money_stock is None:
                 # user never bought this crypto before
-                # we add a new row to the table 
+                # we add a new row to the table
                 conn.execute(
                     'INSERT INTO stock (moneyId, quantity, totalExpense) '
                     'VALUES (?, ?, ?)',
                     (money_id, quantity, buy_price * quantity))
+                conn.commit()
+
             else:
                 # user already bought this crypto before
                 # we update quantity and total cost for this crypto
@@ -190,6 +239,13 @@ def route_add():
                     f'totalExpense={total_expense} '
                     f'WHERE moneyId = {money_id}')
 
+            new_price = coin_api_caller.get_coin_api_value(money_id)
+            if new_price:
+                conn.execute(f'UPDATE stock SET lastPrice={new_price} '
+                             f'WHERE moneyId = {money_id}')
+            
+            calculate_and_store_gain(conn)
+            main_config['gains_drawn'] = False
             conn.commit()
             conn.close()
             return redirect(url_for('index'))
@@ -244,7 +300,6 @@ def check_crypto_values():
         new_price = coin_api_caller.get_coin_api_value(stock['moneyId'])
         evolution = 0
         
-        # TODO try it !!!
         if not (stock['lastPrice'] is None or stock['moneyEvolution'] is None):
             if new_price > stock['lastPrice']:
                 if stock['moneyEvolution'] >= 1:

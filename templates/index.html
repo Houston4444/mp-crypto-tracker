@@ -6,7 +6,7 @@
         <p>Crypto Tracker</p>
     </div>
     <div class="col-2 my-auto">
-        <a href="edit">🖉</a>
+        <a href="edit">-</a>
     </div>
     <div class="col-2 my-auto">
         <a href="add">+</a>
@@ -14,14 +14,9 @@
 </header>
 <div class="row justify-content-center row_gain">
     <a class="main_gain" href="gains">{{gain}}</a>
-    <!-- <div class="col-8 main_gain">
-        <div class="row-12">
-            <a href="gains">Gain: {{gain}} €</a>
-        </div>
-    </div> -->
 </div>
 <div class="row justify-content-center">
-    <div class="col-10 table-container">
+    <div class="col-12 table-container">
         <table class="crypto-index-table">
             {% for money in moneys %}
             <tr>
@@ -34,6 +29,8 @@
                     <span style="font-weight:bold">{{ money['symbol'] }}</span>
                 </td>
                 <td>({{ money['name'] }})</td>
+                <td>{{ money['quantity'] }}</td>
+                <td>{{ money['euro_value'] }}</td>
                 <td>{{ money['evol_sym'] }}</td>
             </tr>
             {% endfor %}
