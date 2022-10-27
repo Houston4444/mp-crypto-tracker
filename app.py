@@ -84,8 +84,7 @@ def index():
                     euro_value_str = "%.3f €" % stock['lastPrice']
                 else:
                     euro_value_str = "%.2f c€" % (stock['lastPrice'] * 100) 
-                print(stock['lastPrice'])
-                print(euro_value_str)
+
                 money = {
                     'symbol': mon['symbol'],
                     'name': mon['name'],
@@ -146,15 +145,19 @@ def route_edit():
             if not money_stock['quantity'] == 0.0:
                 # prevented Zero Division
                 # update quantity and total expense for this crypo.
-                new_quantity = max(money_stock['quantity'] - quantity, 0.0)
-                new_total_expense = (money_stock['totalExpense']
-                                     * (quantity / money_stock['quantity']))
-                conn.execute(
-                    f'UPDATE stock SET quantity={new_quantity}, '
-                    f'totalExpense={new_total_expense} WHERE moneyId = {money_id}')
+                new_quantity = money_stock['quantity'] - quantity
+                
+                if new_quantity <= 0.0:
+                    # We don't have this cryptocurrency anymore
+                    conn.execute(f'DELETE FROM stock WHERE moneyId = {money_id}')
+                else:
+                    new_total_expense = (money_stock['totalExpense']
+                                         * (quantity / money_stock['quantity']))
+                    conn.execute(
+                        f'UPDATE stock SET quantity={new_quantity}, '
+                        f'totalExpense={new_total_expense} WHERE moneyId = {money_id}')
 
             new_price = coin_api_caller.get_coin_api_value(money_id)
-            print('zfefpofe', money_id, new_price)
             if new_price:
                 conn.execute(f'UPDATE stock SET lastPrice={new_price} '
                              f'WHERE moneyId = {money_id}')
@@ -215,8 +218,7 @@ def route_add():
                 fields_ok = False
 
         if fields_ok:
-            conn = get_db_connection()
-            
+            conn = get_db_connection()            
             money_stock = conn.execute(
                 f'SELECT * FROM stock WHERE moneyID = {money_id}').fetchone()
 
@@ -241,7 +243,15 @@ def route_add():
 
             new_price = coin_api_caller.get_coin_api_value(money_id)
             if new_price:
-                conn.execute(f'UPDATE stock SET lastPrice={new_price} '
+                # prepare to stock evolution
+                evolution = 0
+                if new_price > buy_price:
+                    evolution = 1
+                elif new_price < buy_price:
+                    evolution = -1
+                    
+                conn.execute(f'UPDATE stock SET lastPrice={new_price}, '
+                             f'moneyEvolution={evolution} '
                              f'WHERE moneyId = {money_id}')
             
             calculate_and_store_gain(conn)
@@ -264,7 +274,7 @@ def route_gains():
         gains = conn.execute('SELECT gain FROM gains').fetchall()
         gain_list = [g['gain'] for g in gains]
         if len(gain_list) == 1:
-            # make it draw a straight line
+            # make the graph draw a straight line
             # if we've got only one value.
             gain_list.append(gain_list[0])
         
